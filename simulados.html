@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meus Simulados</title>
+<style>
+:root{--bg:#fff7f9;--card:#fff;--pink:#f9d5e0;--rose:#e8a0b8;--wine:#8b2e4a;--text:#3b2630;--mut:#8a7380;--line:#f1dde4;--ok:#5a9e7c;--bad:#c4506a}
+*{box-sizing:border-box;margin:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh}
+aside{width:220px;background:var(--card);border-right:1px solid var(--line);padding:24px 14px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:6px}
+.logo{font-weight:700;color:var(--wine);font-size:1.15rem;padding:0 10px 18px}
+nav button{display:flex;gap:10px;align-items:center;width:100%;border:0;background:none;padding:11px 12px;border-radius:14px;font:inherit;color:var(--mut);cursor:pointer;text-align:left}
+nav button:hover{background:var(--bg)}
+nav button.on{background:var(--pink);color:var(--wine);font-weight:600}
+main{flex:1;padding:28px;max-width:1100px;margin:0 auto;width:100%}
+h1{font-size:1.5rem;color:var(--wine);margin-bottom:18px}
+h2{font-size:1rem;margin-bottom:10px;color:var(--wine)}
+.card{background:var(--card);border-radius:20px;padding:18px;border:1px solid var(--line);box-shadow:0 4px 14px rgba(139,46,74,.05)}
+.filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px;align-items:end}
+label{font-size:.78rem;color:var(--mut);display:flex;flex-direction:column;gap:4px}
+input,select{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--text);min-width:0}
+input:focus,select:focus{outline:2px solid var(--rose)}
+.btn{background:var(--wine);color:#fff;border:0;padding:10px 18px;border-radius:12px;font:inherit;cursor:pointer}
+.btn:hover{opacity:.9}
+.btn.alt{background:var(--pink);color:var(--wine)}
+.btn.del{background:none;color:var(--bad);padding:6px 10px}
+.grid{display:grid;gap:14px}
+.stats{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:18px}
+.stat small{color:var(--mut);font-size:.78rem}
+.stat b{display:block;font-size:1.8rem;color:var(--wine);margin-top:4px}
+.two{grid-template-columns:1fr 300px;align-items:start}
+.hl{display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:14px;margin-bottom:8px}
+.hl.g{background:#eaf5ef}.hl.r{background:#fbe8ed}
+.bar{height:8px;background:var(--line);border-radius:8px;overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;background:var(--rose);border-radius:8px}
+.row{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;margin-bottom:8px}
+.photo{aspect-ratio:4/5;border-radius:16px;background:var(--pink) center/cover;display:flex;align-items:center;justify-content:center;color:var(--wine);text-align:center;padding:10px;font-size:.9rem}
+.item{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;padding:14px 0;border-bottom:1px solid var(--line)}
+.item:last-child{border:0}
+.tag{background:var(--pink);color:var(--wine);padding:3px 10px;border-radius:20px;font-size:.75rem}
+.mut{color:var(--mut);font-size:.85rem}
+.empty{text-align:center;color:var(--mut);padding:24px}
+.form{display:grid;gap:12px;max-width:640px}
+.fl{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+@media(max-width:760px){
+ body{flex-direction:column}
+ aside{position:fixed;bottom:0;top:auto;height:auto;width:100%;flex-direction:row;padding:6px;z-index:9;border-top:1px solid var(--line);border-right:0;justify-content:space-around}
+ .logo{display:none}
+ nav{display:flex;width:100%}
+ nav button{flex-direction:column;gap:2px;font-size:.68rem;padding:8px 2px;text-align:center;align-items:center}
+ main{padding:18px 14px 90px}
+ .two{grid-template-columns:1fr}
+ .row{grid-template-columns:1fr 1fr 1fr auto}
+ .row select{grid-column:1/-1}
+}
+</style>
+</head>
+<body>
+<aside>
+ <div class="logo">Meus Simulados</div>
+ <nav id="nav"></nav>
+</aside>
+<main id="app"></main>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = t => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const KEY = 'simulados_v1';
+const def = () => ({materias:['Matemática','Português','Biologia','Química','Física','História','Geografia'], sims:[], foto:''});
+let S = load();
+function load(){ try { return JSON.parse(localStorage.getItem(KEY)) || def(); } catch(e){ return def(); } }
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){ alert('Não foi possível guardar (armazenamento cheio ou bloqueado). Faz um backup.'); } }
+
+const VIEWS = [['painel','🏠','Painel'],['novo','➕','Novo'],['hist','📋','Histórico'],['mat','📚','Matérias'],['bk','💾','Backup']];
+let view = 'painel';
+let F = {tipo:'', de:'', ate:''};
+let rows = [{m:'',q:'',a:''}];
+let modo = 'mat';
+
+function nav(){
+  $('#nav').innerHTML = VIEWS.map(v => `<button class="${v[0]===view?'on':''}" onclick="go('${v[0]}')"><span>${v[1]}</span>${v[2]}</button>`).join('');
+}
+function go(v){ view = v; nav(); render(); window.scrollTo(0,0); }
+function render(){ ({painel:pPainel, novo:pNovo, hist:pHist, mat:pMat, bk:pBk})[view](); }
+
+const tipos = () => [...new Set(S.sims.map(s => s.tipo).filter(Boolean))].sort();
+const filtered = () => S.sims.filter(s => (!F.tipo || s.tipo === F.tipo) && (!F.de || s.data >= F.de) && (!F.ate || s.data <= F.ate));
+const pct = (a, q) => q ? Math.round(a / q * 1000) / 10 : 0;
+const fmt = d => d ? d.split('-').reverse().join('/') : '';
+
+function subjectStats(list){
+  const m = {};
+  list.forEach(s => (s.mats || []).forEach(x => { m[x.m] = m[x.m] || {q:0,a:0}; m[x.m].q += x.q; m[x.m].a += x.a; }));
+  return Object.entries(m).filter(([,v]) => v.q > 0).map(([n,v]) => ({n, ...v, p: pct(v.a, v.q)})).sort((a,b) => b.p - a.p);
+}
+
+/* ---------- PAINEL ---------- */
+function pPainel(){
+  const l = filtered();
+  const q = l.reduce((t,s) => t + s.total, 0), a = l.reduce((t,s) => t + s.acertos, 0);
+  const subs = subjectStats(l);
+  const best = subs[0], worst = subs.length > 1 ? subs[subs.length-1] : null;
+  const hl = (cls, ttl, x) => `<div class="hl ${cls}"><div><small class="mut">${ttl}</small><div><b>${x ? esc(x.n) : '—'}</b></div></div><b>${x ? x.p + '%' : ''}</b></div>`;
+  $('#app').innerHTML = `
+  <h1>Painel</h1>
+  <div class="filters">
+    <label>Vestibular / Exame<select onchange="F.tipo=this.value;pPainel()"><option value="">Todos</option>${tipos().map(t => `<option ${t===F.tipo?'selected':''}>${esc(t)}</option>`).join('')}</select></label>
+    <label>De<input type="date" value="${F.de}" onchange="F.de=this.value;pPainel()"></label>
+    <label>Até<input type="date" value="${F.ate}" onchange="F.ate=this.value;pPainel()"></label>
+    <button class="btn alt" onclick="F={tipo:'',de:'',ate:''};pPainel()">Limpar</button>
+  </div>
+  <div class="grid stats">
+    <div class="card stat"><small>Simulados</small><b>${l.length}</b></div>
+    <div class="card stat"><small>Questões</small><b>${q}</b></div>
+    <div class="card stat"><small>Acertos</small><b style="color:var(--ok)">${a}</b></div>
+    <div class="card stat"><small>Erros</small><b style="color:var(--bad)">${q-a}</b></div>
+    <div class="card stat"><small>Aproveitamento</small><b>${pct(a,q)}%</b></div>
+  </div>
+  <div class="grid two">
+    <div class="grid">
+      <div class="card"><h2>Destaques</h2>
+        ${hl('g','🏆 Melhor desempenho', best)}
+        ${hl('r','🎯 Precisa de foco', worst)}
+        ${subs.length ? '' : '<p class="mut">Regista simulados por matéria para ver os destaques.</p>'}
+      </div>
+      <div class="card"><h2>Desempenho por matéria</h2>
+        ${subs.length ? subs.map(s => `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between"><span>${esc(s.n)}</span><span class="mut">${s.a}/${s.q} · ${s.p}%</span></div><div class="bar"><i style="width:${s.p}%"></i></div></div>`).join('') : '<div class="empty">Sem dados ainda.</div>'}
+      </div>
+    </div>
+    <div class="card"><h2>Meu espaço de estudos</h2>
+      <div class="photo" style="${S.foto ? `background-image:url('${S.foto}')` : ''}">${S.foto ? '' : 'Adiciona uma foto do teu cantinho de estudos ✨'}</div>
+      <input type="file" id="foto" accept="image/*" hidden onchange="setFoto(this)">
+      <button class="btn" style="width:100%;margin-top:12px" onclick="$('#foto').click()">Trocar foto</button>
+    </div>
+  </div>`;
+}
+function setFoto(inp){
+  const f = inp.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 700 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas'); c.width = img.width * k; c.height = img.height * k;
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      S.foto = c.toDataURL('image/jpeg', .8); save(); pPainel();
+    };
+    img.src = r.result;
+  };
+  r.readAsDataURL(f);
+}
+
+/* ---------- NOVO SIMULADO ---------- */
+function pNovo(){
+  const opts = sel => `<option value="">Matéria…</option>` + S.materias.map(m => `<option ${m===sel?'selected':''}>${esc(m)}</option>`).join('');
+  $('#app').innerHTML = `
+  <h1>Novo Simulado</h1>
+  <form class="card form" onsubmit="addSim(event)">
+    <div class="fl">
+      <label>Nome do simulado<input id="n_nome" required placeholder="Ex.: Simulado ENEM 1"></label>
+      <label>Vestibular / Exame<input id="n_tipo" list="tl" required placeholder="ENEM, Concursos…"><datalist id="tl">${tipos().map(t => `<option value="${esc(t)}">`).join('')}</datalist></label>
+      <label>Data<input id="n_data" type="date" required value="${new Date().toISOString().slice(0,10)}"></label>
+    </div>
+    <div class="fl">
+      <label>Como registar?<select onchange="modo=this.value;pNovo()"><option value="mat" ${modo==='mat'?'selected':''}>Acertos por matéria</option><option value="fin" ${modo==='fin'?'selected':''}>Nota final</option></select></label>
+    </div>
+    ${modo === 'fin' ? `
+    <div class="fl">
+      <label>Total de questões<input id="f_q" type="number" min="1" required></label>
+      <label>Total de acertos<input id="f_a" type="number" min="0" required></label>
+    </div>` : `
+    <div><h2>Matérias</h2>
+      ${rows.map((r,i) => `<div class="row">
+        <select onchange="rows[${i}].m=this.value">${opts(r.m)}</select>
+        <input type="number" min="1" placeholder="Questões" value="${r.q}" oninput="rows[${i}].q=this.value">
+        <input type="number" min="0" placeholder="Acertos" value="${r.a}" oninput="rows[${i}].a=this.value">
+        <button type="button" class="btn del" onclick="rows.splice(${i},1);if(!rows.length)rows.push({m:'',q:'',a:''});keep();">✕</button>
+      </div>`).join('')}
+      <button type="button" class="btn alt" onclick="rows.push({m:'',q:'',a:''});keep()">+ Adicionar matéria</button>
+    </div>`}
+    <button class="btn">Guardar simulado</button>
+  </form>`;
+}
+function keep(){ const v = ['n_nome','n_tipo','n_data'].map(i => $('#'+i).value); pNovo(); ['n_nome','n_tipo','n_data'].forEach((i,k) => $('#'+i).value = v[k]); }
+function addSim(e){
+  e.preventDefault();
+  const s = {id: uid(), nome: $('#n_nome').value.trim(), tipo: $('#n_tipo').value.trim(), data: $('#n_data').value};
+  if (modo === 'fin'){
+    s.total = +$('#f_q').value; s.acertos = +$('#f_a').value; s.mats = [];
+  } else {
+    const ok = rows.filter(r => r.m && +r.q > 0);
+    if (!ok.length) return alert('Adiciona pelo menos uma matéria com questões.');
+    if (ok.some(r => +r.a > +r.q || +r.a < 0)) return alert('Os acertos não podem exceder as questões.');
+    s.mats = ok.map(r => ({m: r.m, q: +r.q, a: +(r.a || 0)}));
+    s.total = s.mats.reduce((t,x) => t + x.q, 0); s.acertos = s.mats.reduce((t,x) => t + x.a, 0);
+  }
+  if (s.acertos > s.total) return alert('Os acertos não podem exceder o total de questões.');
+  S.sims.push(s); save(); rows = [{m:'',q:'',a:''}]; go('hist');
+}
+
+/* ---------- HISTÓRICO ---------- */
+function pHist(){
+  const l = [...S.sims].sort((a,b) => b.data.localeCompare(a.data));
+  $('#app').innerHTML = `<h1>Histórico</h1><div class="card">${l.length ? l.map(s => `
+    <div class="item">
+      <div><b>${esc(s.nome)}</b> <span class="tag">${esc(s.tipo)}</span>
+        <div class="mut">${fmt(s.data)} · ${s.acertos}/${s.total} acertos${(s.mats||[]).length ? ' · ' + s.mats.map(x => esc(x.m) + ' ' + x.a + '/' + x.q).join(', ') : ''}</div></div>
+      <div><b style="color:var(--wine)">${pct(s.acertos, s.total)}%</b> <button class="btn del" onclick="delSim('${s.id}')">Apagar</button></div>
+    </div>`).join('') : '<div class="empty">Ainda não há simulados registados.</div>'}</div>`;
+}
+function delSim(id){ if (confirm('Apagar este simulado?')){ S.sims = S.sims.filter(s => s.id !== id); save(); pHist(); } }
+
+/* ---------- MATÉRIAS ---------- */
+function pMat(){
+  const st = Object.fromEntries(subjectStats(S.sims).map(s => [s.n, s]));
+  $('#app').innerHTML = `<h1>Matérias</h1>
+  <div class="card" style="margin-bottom:14px">
+    <form class="filters" style="margin:0" onsubmit="addMat(event)">
+      <label style="flex:1">Nova matéria<input id="m_n" required placeholder="Ex.: Redação"></label>
+      <button class="btn">Adicionar</button>
+    </form>
+  </div>
+  <div class="card">${S.materias.length ? S.materias.map((m,i) => `
+    <div class="item"><div><b>${esc(m)}</b><div class="mut">${st[m] ? st[m].a + '/' + st[m].q + ' acertos · ' + st[m].p + '%' : 'Sem dados'}</div></div>
+    <button class="btn del" onclick="delMat(${i})">Remover</button></div>`).join('') : '<div class="empty">Nenhuma matéria.</div>'}</div>`;
+}
+function addMat(e){
+  e.preventDefault(); const n = $('#m_n').value.trim();
+  if (n && !S.materias.some(m => m.toLowerCase() === n.toLowerCase())){ S.materias.push(n); save(); }
+  pMat();
+}
+function delMat(i){ if (confirm('Remover da lista? Os simulados antigos mantêm os dados.')){ S.materias.splice(i,1); save(); pMat(); } }
+
+/* ---------- BACKUP ---------- */
+function pBk(){
+  $('#app').innerHTML = `<h1>Backup</h1>
+  <div class="grid" style="max-width:560px">
+    <div class="card"><h2>Exportar</h2><p class="mut" style="margin-bottom:12px">Guarda todos os teus dados num ficheiro JSON.</p><button class="btn" onclick="exportar()">Descarregar backup</button></div>
+    <div class="card"><h2>Importar</h2><p class="mut" style="margin-bottom:12px">Substitui os dados atuais pelos do ficheiro.</p>
+      <input type="file" id="imp" accept=".json,application/json" hidden onchange="importar(this)"><button class="btn alt" onclick="$('#imp').click()">Escolher ficheiro</button></div>
+    <div class="card"><h2>Apagar tudo</h2><button class="btn del" style="border:1px solid var(--bad)" onclick="if(confirm('Apagar TODOS os dados?')){S=def();save();go('painel')}">Repor dados</button></div>
+  </div>`;
+}
+function exportar(){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], {type:'application/json'}));
+  a.download = 'simulados-backup-' + new Date().toISOString().slice(0,10) + '.json'; a.click();
+}
+function importar(inp){
+  const f = inp.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      if (!Array.isArray(d.sims) || !Array.isArray(d.materias)) throw 0;
+      if (confirm('Substituir os dados atuais?')){ S = {materias:d.materias, sims:d.sims, foto:d.foto || ''}; save(); go('painel'); }
+    } catch(e){ alert('Ficheiro inválido.'); }
+  };
+  r.readAsText(f);
+}
+
+nav(); render();
+</script>
+</body>
+</html>
